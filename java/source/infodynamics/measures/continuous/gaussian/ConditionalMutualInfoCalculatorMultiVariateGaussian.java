@@ -19,6 +19,7 @@
 package infodynamics.measures.continuous.gaussian;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import infodynamics.measures.continuous.ConditionalMutualInfoCalculatorMultiVariate;
 import infodynamics.measures.continuous.ConditionalMutualInfoMultiVariateCommon;
@@ -136,6 +137,9 @@ public class ConditionalMutualInfoCalculatorMultiVariateGaussian
 	 *  (and so are used in the covariances) for the conditional
 	 */
 	protected int[] condIndicesInCovariance;
+
+
+	protected double[][] covariance;
 
 	/**
 	 * Construct an instance
@@ -460,7 +464,7 @@ public class ConditionalMutualInfoCalculatorMultiVariateGaussian
 										detCovariance));
 					} else {
 						detccCovariance = MatrixUtils.determinantViaCholeskyResult(L_cc);
-						// So compute as normal:
+						// So compute as normal: Equation 15
 						lastAverage = 0.5 * Math.log(Math.abs(
 									detc1Covariance * detc2Covariance /
 											(detCovariance * detccCovariance)));
@@ -480,6 +484,252 @@ public class ConditionalMutualInfoCalculatorMultiVariateGaussian
 		condMiComputed = true;
 		return lastAverage;
 	}
+
+	// TODO: use above method for base case then use recursive call for mutivariate chain rule calculation
+	public double computeAverageLocalOfObservationsMultivariate() throws Exception {
+		if (L_c1 == null) {
+			// Variable 1 is fully linearly redundant with conditional, so
+			// we will have zero conditional MI:
+			lastAverage = 0;
+		} else {
+			detc1Covariance = MatrixUtils.determinantViaCholeskyResult(L_c1);
+			if (L_c2 == null) {
+				// Variable 2 is fully linearly redundant with conditional, so
+				// we will have zero conditonal MI:
+				lastAverage = 0;
+			} else {
+				detc2Covariance = MatrixUtils.determinantViaCholeskyResult(L_c2);
+				if (L == null) {
+					// There is a linear dependence amongst variables 1 and 2 given the
+					//  conditional which did not exist for either with the conditional alone,
+					//  so conditional MI diverges:
+					lastAverage = Double.POSITIVE_INFINITY;
+				} else {
+					detCovariance = MatrixUtils.determinantViaCholeskyResult(L);
+
+					// Call the recursive method to compute multivariate MI
+					lastAverage = computeMultivariateMI(var1IndicesInCovariance, var2IndicesInCovariance, condIndicesInCovariance);
+				}
+			}
+		}
+
+		if (biasCorrection) {
+			ChiSquareMeasurementDistribution analyticMeasDist = computeSignificance(true);
+			lastAverage -= analyticMeasDist.getMeanOfUncorrectedDistribution();
+		}
+
+		condMiComputed = true;
+		return lastAverage;
+	}	
+
+
+	public double computeMultivariateMI(int[] var1Indices, int[] var2Indices, int[] condIndices) throws Exception {
+		if (var1Indices.length == 1 && var2Indices.length == 1) {
+			// Base case: Compute CMI for univariate variables
+			return computeUnivariateConditionalMI(var1Indices[0], var2Indices[0], condIndices);
+		} else if (var1Indices.length > 1) {
+			// Recursive case: split var1
+			int[] var1FirstPart = Arrays.copyOfRange(var1Indices, 0, 1);
+			int[] var1RestPart = Arrays.copyOfRange(var1Indices, 1, var1Indices.length);
+			return computeMultivariateMI(var1FirstPart, var2Indices, condIndices) +
+				computeMultivariateMI(var1RestPart, var2Indices, MatrixUtils.concatenate(condIndices, var1FirstPart));
+		} else if (var2Indices.length > 1) {
+			// Recursive case: split var2
+			int[] var2FirstPart = Arrays.copyOfRange(var2Indices, 0, 1);
+			int[] var2RestPart = Arrays.copyOfRange(var2Indices, 1, var2Indices.length);
+			return computeMultivariateMI(var1Indices, var2FirstPart, condIndices) +
+				computeMultivariateMI(var1Indices, var2RestPart, MatrixUtils.concatenate(condIndices, var2FirstPart));
+		} else {
+			throw new Exception("Invalid state in computeMultivariateMI: var1Indices and var2Indices are empty.");
+		}
+	}
+
+	public double computeUnivariateConditionalMI(int var1IndexInCov, int var2IndexInCov, int[] condIndicesInCov) throws Exception {
+		// Extract observations for var1 and var2 using the covariance indices
+		double[][] vars = extractObservations(new int[] { var1IndexInCov, var2IndexInCov });
+		double[] var1 = MatrixUtils.selectColumn(vars, 0);
+		double[] var2 = MatrixUtils.selectColumn(vars, 1);
+	
+		// Extract observations for cond variables
+		double[][] cond;
+		if (condIndicesInCov.length > 0) {
+			cond = extractObservations(condIndicesInCov);
+		} else {
+			// Empty conditional if no dimensions
+			cond = new double[var1.length][0];
+		}
+	
+		// Proceed with the rest of the computations...
+		return computeConditionalMI(var1, var2, cond);
+	}
+
+	private double computeConditionalMI(double[] var1, double[] var2, double[][] cond) throws Exception {
+		// Step 1: Verify dimensions
+		if (var1.length != var2.length || var1.length != cond.length) {
+			throw new Exception("Mismatch in number of observations between variables.");
+		}
+	
+		// Step 2: Perform linear regression
+		double[] predictedVar1 = MatrixUtils.linearPredict(var1, cond);
+		double[] predictedVar2 = MatrixUtils.linearPredict(var2, cond);
+	
+		// Step 3: Check for successful predictions
+		if (predictedVar1 == null || predictedVar2 == null) {
+			throw new Exception("Linear prediction failed.");
+		}
+	
+		// Step 4: Compute residuals
+		double[] residualVar1 = MatrixUtils.subtract(var1, predictedVar1);
+		double[] residualVar2 = MatrixUtils.subtract(var2, predictedVar2);
+	
+		// Step 5: Compute correlation between residuals
+		double residualCorr = MatrixUtils.correlation(residualVar1, residualVar2);
+	
+		// Step 6: Compute CMI
+		double rhoSquared = residualCorr * residualCorr;
+		if (rhoSquared >= 1.0) {
+			// Handle perfect correlation case
+			return Double.POSITIVE_INFINITY;
+		}
+	
+		return -0.5 * Math.log(1 - rhoSquared);
+	}
+
+	// public double computeUnivariateConditionalMI(int var1IndexInCov, int var2IndexInCov, int[] condIndicesInCov) throws Exception {
+	// 	// Adjust indices to match observation arrays
+	// 	int var1Index = var1IndexInCov; // var1Observations indices start from 0	
+	// 	int var2Index = var2IndexInCov - dimensionsVar1; // Adjust for var1 variables
+		
+		
+	// 	int[] condIndices = new int[condIndicesInCov.length];
+	// 	for (int i = 0; i < condIndicesInCov.length; i++) {
+	// 		condIndices[i] = condIndicesInCov[i] - dimensionsVar1 - dimensionsVar2; // Adjust for var1 and var2
+			
+	// 	}
+	
+	// 	// Step 1: Extract var1 and var2 as columns
+	// 	double[] var1 = MatrixUtils.selectColumn(var1Observations, var1Index);
+	// 	double[] var2 = MatrixUtils.selectColumn(var2Observations, var2Index);
+	
+	// 	// Step 2: Extract cond variables
+	// 	double[][] cond;
+	// 	if (dimensionsCond > 0) {
+	// 		cond = MatrixUtils.selectColumns(condObservations, condIndices);
+	// 	} else {
+	// 		cond = new double[var1.length][0]; // Empty conditional if no dimensions
+	// 	}
+	
+	// 	// Step 3: Verify dimensions
+	// 	if (var1.length != var2.length || var1.length != cond.length) {
+	// 		throw new Exception("Mismatch in number of observations between variables.");
+	// 	}
+	
+	// 	// Step 4: Perform linear regression
+	// 	double[] predictedVar1 = MatrixUtils.linearPredict(var1, cond);
+	// 	double[] predictedVar2 = MatrixUtils.linearPredict(var2, cond);
+	
+	// 	// Step 5: Check for successful predictions
+	// 	if (predictedVar1 == null || predictedVar2 == null) {
+	// 		throw new Exception("Linear prediction failed.");
+	// 	}
+	
+	// 	// Step 6: Compute residuals
+	// 	double[] residualVar1 = MatrixUtils.subtract(var1, predictedVar1);
+	// 	double[] residualVar2 = MatrixUtils.subtract(var2, predictedVar2);
+	
+	// 	// Step 7: Compute correlation between residuals
+	// 	double residualCorr = MatrixUtils.correlation(residualVar1, residualVar2);
+	
+	// 	// Step 8: Compute CMI
+	// 	double rhoSquared = residualCorr * residualCorr;
+	// 	if (rhoSquared >= 1.0) {
+	// 		// Handle perfect correlation case
+	// 		return Double.POSITIVE_INFINITY;
+	// 	}
+	
+	// 	return -0.5 * Math.log(1 - rhoSquared);
+	// }
+
+	// public double[][] extractObservations(int[] varIndices) throws Exception {
+	// 	// Determine the number of observations
+	// 	int numObservations = -1;
+	
+	// 	if (var1Observations != null && var1Observations.length > 0) {
+	// 		numObservations = var1Observations.length;
+	// 	} else if (var2Observations != null && var2Observations.length > 0) {
+	// 		numObservations = var2Observations.length;
+	// 	} else if (condObservations != null && condObservations.length > 0) {
+	// 		numObservations = condObservations.length;
+	// 	} else {
+	// 		throw new Exception("No observations available");
+	// 	}
+	
+	// 	// Combine var1Observations, var2Observations, and condObservations
+	// 	double[][] combinedObservations = null;
+	
+	// 	if (dimensionsVar1 > 0 && var1Observations != null && var1Observations[0].length > 0) {
+	// 		combinedObservations = var1Observations;
+	// 	}
+	
+	// 	if (dimensionsVar2 > 0 && var2Observations != null && var2Observations[0].length > 0) {
+	// 		if (combinedObservations == null) {
+	// 			combinedObservations = var2Observations;
+	// 		} else {
+	// 			combinedObservations = MatrixUtils.appendColumns(combinedObservations, var2Observations);
+	// 		}
+	// 	}
+	
+	// 	if (dimensionsCond > 0 && condObservations != null && condObservations[0].length > 0) {
+	// 		if (combinedObservations == null) {
+	// 			combinedObservations = condObservations;
+	// 		} else {
+	// 			combinedObservations = MatrixUtils.appendColumns(combinedObservations, condObservations);
+	// 		}
+	// 	}
+	
+	// 	if (combinedObservations == null) {
+	// 		throw new Exception("No observations to extract");
+	// 	}
+	
+	// 	// Use selectColumns to extract the desired columns
+	// 	double[][] extracted = MatrixUtils.selectColumns(combinedObservations, varIndices);
+	
+	// 	return extracted;
+	// }
+
+	public double[][] extractObservations(int[] varIndices) throws Exception {
+		int numObservations = var1Observations.length;
+	
+		double[][] result = new double[numObservations][varIndices.length];
+	
+		for (int i = 0; i < varIndices.length; i++) {
+			int covIndex = varIndices[i];
+			if (covIndex < dimensionsVar1) {
+				// Variable from var1Observations
+				double[] column = MatrixUtils.selectColumn(var1Observations, covIndex);
+				for (int j = 0; j < numObservations; j++) {
+					result[j][i] = column[j];
+				}
+			} else if (covIndex < dimensionsVar1 + dimensionsVar2) {
+				// Variable from var2Observations
+				int var2Index = covIndex - dimensionsVar1;
+				double[] column = MatrixUtils.selectColumn(var2Observations, var2Index);
+				for (int j = 0; j < numObservations; j++) {
+					result[j][i] = column[j];
+				}
+			} else {
+				// Variable from condObservations
+				int condIndex = covIndex - dimensionsVar1 - dimensionsVar2;
+				double[] column = MatrixUtils.selectColumn(condObservations, condIndex);
+				for (int j = 0; j < numObservations; j++) {
+					result[j][i] = column[j];
+				}
+			}
+		}
+		return result;
+	}
+
+	
 
 	/**
 	 * @return array of the local values in nats (not bits!)

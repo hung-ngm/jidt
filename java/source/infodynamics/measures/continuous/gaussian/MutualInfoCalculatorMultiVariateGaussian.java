@@ -408,6 +408,8 @@ public class MutualInfoCalculatorMultiVariateGaussian
 					detCovariance = MatrixUtils.determinantViaCholeskyResult(L);
 
 					// So all the covariance matrices were ok
+
+					// MAIN calculation - D Mutual Cal
 					lastAverage = 0.5 * Math.log(Math.abs(
 							detSourceCovariance * detDestCovariance /
 									detCovariance));

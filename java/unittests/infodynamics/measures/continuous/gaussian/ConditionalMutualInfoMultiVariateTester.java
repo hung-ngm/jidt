@@ -170,7 +170,7 @@ public class ConditionalMutualInfoMultiVariateTester extends
 				new MutualInfoCalculatorMultiVariateGaussian();
 		miCalc.initialise(1, 1);
 		miCalc.setObservations(source, dest);	
-		double mi = miCalc.computeAverageLocalOfObservations();
+		double mi = miCalc.computeAverageLocalOfObservations();	
 		
 		// Now compute via CMI calculator with null passed:
 		ConditionalMutualInfoCalculatorMultiVariateGaussian condMiCalc =
@@ -481,5 +481,36 @@ public class ConditionalMutualInfoMultiVariateTester extends
 		condMiCalc.setObservations(MatrixUtils.selectColumns(destData, 0, 1), sourceData, condData);
 		assertTrue(Double.isInfinite(condMiCalc.computeAverageLocalOfObservations()));
 	}
+
+	public void testComputeAverageLocalOfObservationsMultivariate() throws Exception {
+		// Read data from the file
+		ArrayFileReader afr = new ArrayFileReader("demos/data/10ColsRandomGaussian-1.txt");
+		double[][] data = afr.getDouble2DMatrix();
 	
+		// Select variables from the data
+		// Let's assume columns 0 and 1 are source variables, column 2 is the destination variable, and column 3 is a conditional variable
+		double[][] source = MatrixUtils.selectColumns(data, new int[] {0, 1});
+		double[][] dest = MatrixUtils.selectColumns(data, new int[] {2, 3});
+		double[][] cond = MatrixUtils.selectColumns(data, new int[] {4, 5});
+	
+		// Initialize the calculator
+		ConditionalMutualInfoCalculatorMultiVariateGaussian calc = new ConditionalMutualInfoCalculatorMultiVariateGaussian();
+		calc.initialise(source[0].length, dest[0].length, cond[0].length);
+	
+		// Set observations
+		calc.setObservations(source, dest, cond);
+	
+		// Compute the CMI using the original method
+		double cmiOriginal = calc.computeAverageLocalOfObservations();
+	
+		// Compute the CMI using your new multivariate method
+		double cmiMultivariate = calc.computeAverageLocalOfObservationsMultivariate();
+	
+		// Assert that the results are close (since both methods should compute the same CMI)
+
+		System.out.println("CMI Original: " + cmiOriginal);
+		System.out.println("CMI Multivariate: " + cmiMultivariate);
+
+		assertEquals(cmiOriginal, cmiMultivariate, 1e-6);
+	}
 }

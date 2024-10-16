@@ -28,6 +28,10 @@
 		<pathelement location="bin"/>
 	</path>
 
+	<path id="junit.classpath">
+		<pathelement location="${user.home}/Downloads/junit3.8.2/junit.jar"/>
+	</path>
+
 	<path id="apache-classpath">
 		<pathelement path="./share/commons-math3-3.5.jar"/>
 	</path>
@@ -87,6 +91,7 @@
 			<src path="${unittestssrc}"/>
 			<classpath refid="project.classpath"/>
 			<classpath refid="apache-classpath"/>
+			<classpath refid="junit.classpath"/>
 		</javac>
 
 		<!-- Run the junit tests and make sure they complete ok -->
@@ -95,9 +100,11 @@
 				<path refid="project.classpath"/>
 				<pathelement path="${unittestsbin}"/>
 				<pathelement location="${basedir}/clover.jar"/>
+				<path refid="junit.classpath" />
 			</classpath>
 			<formatter type="plain"/>
-			<batchtest todir="${reports.tests}"> <!-- Writes full reports with stdout and stderr to ${reports.tests} -->
+			<test if="test.class" name="${test.class}" todir="${reports.tests}"/>
+			<batchtest unless="test.class" todir="${reports.tests}"> <!-- Writes full reports with stdout and stderr to ${reports.tests} -->
 				<fileset dir="${unittestsbin}">
 					<include name="**/*.class"/>
 					<exclude name="**/*AbstractTester.class"/>
@@ -236,6 +243,8 @@
 		</javac>
 
 		<junit printsummary="yes" showoutput="yes" fork="true" forkmode="once" haltonfailure="yes" haltonerror="yes" includeantruntime="true">
+			<formatter type="plain" usefile="false" />
+    		<formatter type="xml" />
 			<classpath>
 				<path refid="project.classpath"/>
 				<pathelement path="${unittestsbin}"/>

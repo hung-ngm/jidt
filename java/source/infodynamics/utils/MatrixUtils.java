@@ -5090,4 +5090,170 @@ public class MatrixUtils {
 		}
 		return diag;
 	}
+
+	public static int[] concatenate(int[] array1, int[] array2) {
+		int[] result = Arrays.copyOf(array1, array1.length + array2.length);
+		System.arraycopy(array2, 0, result, array1.length, array2.length);
+		return result;
+	}
+
+	public static double[][] invert(double[][] matrix) throws Exception {
+		int n = matrix.length;
+		double[][] inverse = new double[n][n];
+		
+		// Create augmented matrix [matrix | I]
+		double[][] augmented = new double[n][2*n];
+		for (int i = 0; i < n; i++) {
+			System.arraycopy(matrix[i], 0, augmented[i], 0, n);
+			augmented[i][n + i] = 1;
+		}
+		
+		// Gaussian elimination
+		for (int i = 0; i < n; i++) {
+			// Find pivot
+			int max = i;
+			for (int j = i + 1; j < n; j++) {
+				if (Math.abs(augmented[j][i]) > Math.abs(augmented[max][i])) {
+					max = j;
+				}
+			}
+			
+			// Swap maximum row with current row
+			double[] temp = augmented[i];
+			augmented[i] = augmented[max];
+			augmented[max] = temp;
+			
+			// Make all rows below this one 0 in current column
+			for (int j = i + 1; j < n; j++) {
+				double c = -augmented[j][i] / augmented[i][i];
+				for (int k = i; k < 2*n; k++) {
+					if (i == k) {
+						augmented[j][k] = 0;
+					} else {
+						augmented[j][k] += c * augmented[i][k];
+					}
+				}
+			}
+		}
+		
+		// Solve equation Ax=b using back substitution
+		for (int i = n - 1; i >= 0; i--) {
+			for (int j = 0; j < n; j++) {
+				inverse[i][j] = augmented[i][n+j] / augmented[i][i];
+			}
+			for (int j = i - 1; j >= 0; j--) {
+				for (int k = 0; k < n; k++) {
+					augmented[j][n+k] -= augmented[j][i] * inverse[i][k];
+				}
+			}
+		}
+		
+		return inverse;
+	}
+
+	// linear predict method (Equation 11, 12 in the paper)
+	public static double[] linearPredict(double[] x, double[][] regressors) {
+		// Implement linear regression to predict x using regressors
+		int n = regressors.length;
+		int p = regressors[0].length;
+	
+		if (x.length != n) {
+			System.out.println("Error: x length does not match regressors length");
+			return null;
+		}
+	
+		// Create the design matrix
+		double[][] X = new double[n][p+1];
+		for (int i = 0; i < n; i++) {
+			X[i][0] = 1.0;
+			System.arraycopy(regressors[i], 0, X[i], 1, p);
+		}
+	
+		try {
+			// Compute X^T * X
+			double[][] XtX = MatrixUtils.matrixProduct(MatrixUtils.transpose(X), X);
+	
+			// Compute X^T * y
+			double[] XtY = MatrixUtils.matrixVectorProduct(MatrixUtils.transpose(X), x);
+	
+			// Solve (X^T * X) * beta = X^T * y for beta
+			double[] beta = solveWithCholesky(XtX, XtY);
+	
+			// Compute predictions
+			double[] predictions = new double[n];
+			for (int i = 0; i < n; i++) {
+				predictions[i] = beta[0];  // Intercept term
+				for (int j = 0; j < p; j++) {
+					predictions[i] += beta[j + 1] * regressors[i][j];
+				}
+			}
+	
+			return predictions;
+		} catch (Exception e) {
+			System.out.println("Error in linearPredict: " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	public static double[] matrixVectorProduct(double[][] A, double[] x) {
+		int m = A.length;
+		int n = A[0].length;
+		double[] product = new double[m];
+		for (int i = 0; i < m; i++) {
+			for (int j = 0; j < n; j++) {
+				product[i] += A[i][j] * x[j];
+			}
+		}
+		return product;
+	}
+
+	public static double[][] choleskyDecomposition(double[][] A) {
+		int n = A.length;
+		double[][] L = new double[n][n];
+	
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j <= i; j++) {
+				double sum = 0.0;
+				for (int k = 0; k < j; k++) {
+					sum += L[i][k] * L[j][k];
+				}
+				if (i == j) {
+					L[i][j] = Math.sqrt(A[i][i] - sum);
+				} else {
+					L[i][j] = (1.0 / L[j][j] * (A[i][j] - sum));
+				}
+			}
+		}
+		return L;
+	}
+
+	public static double[] solveWithCholesky(double[][] A, double[] b) {
+		int n = A.length;
+	
+		// Perform Cholesky decomposition (A = L * L^T)
+		double[][] L = MatrixUtils.choleskyDecomposition(A);
+	
+		// Solve L * y = b for y (forward substitution)
+		double[] y = new double[n];
+		for (int i = 0; i < n; i++) {
+			y[i] = b[i];
+			for (int j = 0; j < i; j++) {
+				y[i] -= L[i][j] * y[j];
+			}
+			y[i] /= L[i][i];
+		}
+	
+		// Solve L^T * x = y for x (back substitution)
+		double[] x = new double[n];
+		for (int i = n - 1; i >= 0; i--) {
+			x[i] = y[i];
+			for (int j = i + 1; j < n; j++) {
+				x[i] -= L[j][i] * x[j];
+			}
+			x[i] /= L[i][i];
+		}
+	
+		return x;
+	}
 }

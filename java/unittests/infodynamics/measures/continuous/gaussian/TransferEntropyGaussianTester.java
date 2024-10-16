@@ -60,6 +60,7 @@ public class TransferEntropyGaussianTester extends TransferEntropyAbstractTester
 		System.out.println("Testing linear-Gaussian TE against values from " +
 				"(modified) ChaLearn Connectomics Challenge Sample Code");
 		
+		// Load data, test on specific values
 		ArrayFileReader afr = new ArrayFileReader("demos/data/2coupledRandomCols-1.txt");
 		double[][] data = afr.getDouble2DMatrix();
 		

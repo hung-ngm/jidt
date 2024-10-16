@@ -841,4 +841,9 @@ public class RandomGenerator {
 		}
 		return randPairs;
 	}
+
+    public double generateRandomValue(int i, double d) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'generateRandomValue'");
+    }
 }
