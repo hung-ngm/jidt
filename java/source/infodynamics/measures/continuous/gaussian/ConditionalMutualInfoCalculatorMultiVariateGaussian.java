@@ -485,7 +485,6 @@ public class ConditionalMutualInfoCalculatorMultiVariateGaussian
 		return lastAverage;
 	}
 
-	// TODO: use above method for base case then use recursive call for mutivariate chain rule calculation
 	public double computeAverageLocalOfObservationsMultivariate() throws Exception {
 		if (L_c1 == null) {
 			// Variable 1 is fully linearly redundant with conditional, so
@@ -594,108 +593,6 @@ public class ConditionalMutualInfoCalculatorMultiVariateGaussian
 	
 		return -0.5 * Math.log(1 - rhoSquared);
 	}
-
-	// public double computeUnivariateConditionalMI(int var1IndexInCov, int var2IndexInCov, int[] condIndicesInCov) throws Exception {
-	// 	// Adjust indices to match observation arrays
-	// 	int var1Index = var1IndexInCov; // var1Observations indices start from 0	
-	// 	int var2Index = var2IndexInCov - dimensionsVar1; // Adjust for var1 variables
-		
-		
-	// 	int[] condIndices = new int[condIndicesInCov.length];
-	// 	for (int i = 0; i < condIndicesInCov.length; i++) {
-	// 		condIndices[i] = condIndicesInCov[i] - dimensionsVar1 - dimensionsVar2; // Adjust for var1 and var2
-			
-	// 	}
-	
-	// 	// Step 1: Extract var1 and var2 as columns
-	// 	double[] var1 = MatrixUtils.selectColumn(var1Observations, var1Index);
-	// 	double[] var2 = MatrixUtils.selectColumn(var2Observations, var2Index);
-	
-	// 	// Step 2: Extract cond variables
-	// 	double[][] cond;
-	// 	if (dimensionsCond > 0) {
-	// 		cond = MatrixUtils.selectColumns(condObservations, condIndices);
-	// 	} else {
-	// 		cond = new double[var1.length][0]; // Empty conditional if no dimensions
-	// 	}
-	
-	// 	// Step 3: Verify dimensions
-	// 	if (var1.length != var2.length || var1.length != cond.length) {
-	// 		throw new Exception("Mismatch in number of observations between variables.");
-	// 	}
-	
-	// 	// Step 4: Perform linear regression
-	// 	double[] predictedVar1 = MatrixUtils.linearPredict(var1, cond);
-	// 	double[] predictedVar2 = MatrixUtils.linearPredict(var2, cond);
-	
-	// 	// Step 5: Check for successful predictions
-	// 	if (predictedVar1 == null || predictedVar2 == null) {
-	// 		throw new Exception("Linear prediction failed.");
-	// 	}
-	
-	// 	// Step 6: Compute residuals
-	// 	double[] residualVar1 = MatrixUtils.subtract(var1, predictedVar1);
-	// 	double[] residualVar2 = MatrixUtils.subtract(var2, predictedVar2);
-	
-	// 	// Step 7: Compute correlation between residuals
-	// 	double residualCorr = MatrixUtils.correlation(residualVar1, residualVar2);
-	
-	// 	// Step 8: Compute CMI
-	// 	double rhoSquared = residualCorr * residualCorr;
-	// 	if (rhoSquared >= 1.0) {
-	// 		// Handle perfect correlation case
-	// 		return Double.POSITIVE_INFINITY;
-	// 	}
-	
-	// 	return -0.5 * Math.log(1 - rhoSquared);
-	// }
-
-	// public double[][] extractObservations(int[] varIndices) throws Exception {
-	// 	// Determine the number of observations
-	// 	int numObservations = -1;
-	
-	// 	if (var1Observations != null && var1Observations.length > 0) {
-	// 		numObservations = var1Observations.length;
-	// 	} else if (var2Observations != null && var2Observations.length > 0) {
-	// 		numObservations = var2Observations.length;
-	// 	} else if (condObservations != null && condObservations.length > 0) {
-	// 		numObservations = condObservations.length;
-	// 	} else {
-	// 		throw new Exception("No observations available");
-	// 	}
-	
-	// 	// Combine var1Observations, var2Observations, and condObservations
-	// 	double[][] combinedObservations = null;
-	
-	// 	if (dimensionsVar1 > 0 && var1Observations != null && var1Observations[0].length > 0) {
-	// 		combinedObservations = var1Observations;
-	// 	}
-	
-	// 	if (dimensionsVar2 > 0 && var2Observations != null && var2Observations[0].length > 0) {
-	// 		if (combinedObservations == null) {
-	// 			combinedObservations = var2Observations;
-	// 		} else {
-	// 			combinedObservations = MatrixUtils.appendColumns(combinedObservations, var2Observations);
-	// 		}
-	// 	}
-	
-	// 	if (dimensionsCond > 0 && condObservations != null && condObservations[0].length > 0) {
-	// 		if (combinedObservations == null) {
-	// 			combinedObservations = condObservations;
-	// 		} else {
-	// 			combinedObservations = MatrixUtils.appendColumns(combinedObservations, condObservations);
-	// 		}
-	// 	}
-	
-	// 	if (combinedObservations == null) {
-	// 		throw new Exception("No observations to extract");
-	// 	}
-	
-	// 	// Use selectColumns to extract the desired columns
-	// 	double[][] extracted = MatrixUtils.selectColumns(combinedObservations, varIndices);
-	
-	// 	return extracted;
-	// }
 
 	public double[][] extractObservations(int[] varIndices) throws Exception {
 		int numObservations = var1Observations.length;
